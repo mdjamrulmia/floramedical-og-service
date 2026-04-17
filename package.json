@@ -1,9 +1,21 @@
 {
   "name": "floramedical-og-service",
   "version": "1.0.0",
+  "description": "OG image generation service for Flora Medical Global",
   "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
   "dependencies": {
-    "@vercel/og": "^0.6.2",
+    "@vercel/og": "^0.6.3",
     "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/react": "^18.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
