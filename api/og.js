@@ -1,3 +1,10 @@
+// Vercel Edge Function — Generates 1200x630 branded OG images
+// URL: https://og.floramedicalglobal.com/api/og?type=plant&slug=aloe-vera
+// URL: https://og.floramedicalglobal.com/api/og?type=blog&slug=some-blog-slug
+//
+// NOTE: Written as pure JS with React.createElement (no JSX) to avoid
+// Vercel Edge Runtime "react/jsx-runtime" unsupported-module error.
+
 import { ImageResponse } from "@vercel/og";
 import { createClient } from "@supabase/supabase-js";
 import React from "react";
@@ -6,9 +13,12 @@ export const config = { runtime: "edge" };
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1509223197845-458d87318791?w=1200&h=1260&fit=crop";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1509223197845-458d87318791?w=1200&h=1260&fit=crop";
+
 const BRAND_GREEN = "#16a34a";
 const BRAND_DARK = "#0a3d2e";
 const TEXT_WHITE = "#ffffff";
@@ -28,7 +38,9 @@ export default async function handler(req) {
     const type = url.searchParams.get("type") || "plant";
     const slug = url.searchParams.get("slug");
 
-    if (!slug) return new Response("Missing slug parameter", { status: 400 });
+    if (!slug) {
+      return new Response("Missing slug parameter", { status: 400 });
+    }
 
     let title = "Flora Medical Global";
     let subtitle = "";
@@ -45,11 +57,24 @@ export default async function handler(req) {
       if (data) {
         title = data.name_en || "Plant";
         subtitle = data.scientific_name || data.family || "";
-        imageUrl = data.thumbnail_url || (Array.isArray(data.images) && data.images[0]) || FALLBACK_IMAGE;
-        badge = data.category === "indoor" ? "Indoor Plant"
-              : data.category === "garden" ? "Garden Plant"
-              : data.category === "both" ? "Indoor & Garden"
-              : "Medicinal Plant";
+        // @vercel/og only supports JPEG/PNG (NOT webp/avif)
+        const isSupported = (u) =>
+          typeof u === "string" && /\.(jpe?g|png)(\?|$)/i.test(u);
+        const supportedFromArray = Array.isArray(data.images)
+          ? data.images.find(isSupported)
+          : null;
+        imageUrl =
+          supportedFromArray ||
+          (isSupported(data.thumbnail_url) ? data.thumbnail_url : null) ||
+          FALLBACK_IMAGE;
+        badge =
+          data.category === "indoor"
+            ? "Indoor Plant"
+            : data.category === "garden"
+            ? "Garden Plant"
+            : data.category === "both"
+            ? "Indoor & Garden"
+            : "Medicinal Plant";
       }
     } else if (type === "blog") {
       const { data } = await supabase
@@ -61,7 +86,12 @@ export default async function handler(req) {
       if (data) {
         title = data.title_en || "Blog Post";
         subtitle = data.excerpt_en ? truncate(data.excerpt_en, 80) : "";
-        imageUrl = data.social_media_image || data.cover_image || FALLBACK_IMAGE;
+        const isSupported = (u) =>
+          typeof u === "string" && /\.(jpe?g|png)(\?|$)/i.test(u);
+        imageUrl =
+          (isSupported(data.social_media_image) ? data.social_media_image : null) ||
+          (isSupported(data.cover_image) ? data.cover_image : null) ||
+          FALLBACK_IMAGE;
         badge = data.category || "Blog";
       }
     }
@@ -69,57 +99,187 @@ export default async function handler(req) {
     title = truncate(title, 60);
     subtitle = truncate(subtitle, 80);
 
-    const tree = h("div", {
-      style: { display: "flex", width: "1200px", height: "630px", backgroundColor: BRAND_DARK, position: "relative" }
-    },
-      h("div", {
-        style: { display: "flex", width: "720px", height: "630px", position: "relative", overflow: "hidden" }
+    const tree = h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          width: "1200px",
+          height: "630px",
+          backgroundColor: BRAND_DARK,
+          position: "relative",
+        },
       },
-        h("img", { src: imageUrl, width: 720, height: 630, style: { width: "720px", height: "630px", objectFit: "cover" } }),
+      // LEFT: Image
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            width: "720px",
+            height: "630px",
+            position: "relative",
+            overflow: "hidden",
+          },
+        },
+        h("img", {
+          src: imageUrl,
+          width: 720,
+          height: 630,
+          style: { width: "720px", height: "630px", objectFit: "cover" },
+        }),
         h("div", {
-          style: { position: "absolute", top: 0, right: 0, width: "120px", height: "630px",
-            background: `linear-gradient(to right, transparent, ${BRAND_DARK})` }
+          style: {
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: "120px",
+            height: "630px",
+            background: `linear-gradient(to right, transparent, ${BRAND_DARK})`,
+          },
         })
       ),
-      h("div", {
-        style: { display: "flex", flexDirection: "column", width: "480px", height: "630px",
-          padding: "60px 50px", justifyContent: "space-between", backgroundColor: BRAND_DARK }
-      },
-        h("div", { style: { display: "flex", alignItems: "center", gap: "12px" } },
-          h("div", {
-            style: { display: "flex", alignItems: "center", justifyContent: "center",
-              width: "44px", height: "44px", backgroundColor: BRAND_GREEN, borderRadius: "10px", fontSize: "26px" }
-          }, "🌿"),
-          h("div", { style: { display: "flex", flexDirection: "column" } },
-            h("span", { style: { color: TEXT_WHITE, fontSize: "20px", fontWeight: 700, lineHeight: 1.1 } }, "Flora Medical"),
-            h("span", { style: { color: TEXT_MUTED, fontSize: "14px", fontWeight: 400, lineHeight: 1.1 } }, "Global Encyclopedia")
+      // RIGHT: Branding
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            width: "480px",
+            height: "630px",
+            padding: "60px 50px",
+            justifyContent: "space-between",
+            backgroundColor: BRAND_DARK,
+          },
+        },
+        // Top: Logo
+        h(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: "12px" } },
+          h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "44px",
+                height: "44px",
+                backgroundColor: BRAND_GREEN,
+                borderRadius: "10px",
+                fontSize: "26px",
+              },
+            },
+            "🌿"
+          ),
+          h(
+            "div",
+            { style: { display: "flex", flexDirection: "column" } },
+            h(
+              "span",
+              {
+                style: {
+                  color: TEXT_WHITE,
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                },
+              },
+              "Flora Medical"
+            ),
+            h(
+              "span",
+              {
+                style: {
+                  color: TEXT_MUTED,
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  lineHeight: 1.1,
+                },
+              },
+              "Global Encyclopedia"
+            )
           )
         ),
-        h("div", { style: { display: "flex", flexDirection: "column", gap: "16px" } },
-          h("div", {
-            style: { display: "flex", alignSelf: "flex-start", padding: "6px 14px",
-              backgroundColor: BRAND_GREEN, color: TEXT_WHITE, fontSize: "14px", fontWeight: 600,
-              borderRadius: "999px", textTransform: "uppercase", letterSpacing: "0.5px" }
-          }, badge),
-          h("div", {
-            style: { display: "flex", color: TEXT_WHITE,
-              fontSize: title.length > 30 ? "44px" : "52px", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-1px" }
-          }, title),
-          subtitle ? h("div", {
-            style: { display: "flex", color: TEXT_MUTED, fontSize: "20px", fontWeight: 400,
-              fontStyle: type === "plant" ? "italic" : "normal", lineHeight: 1.3 }
-          }, subtitle) : null
+        // Middle: Title & Subtitle
+        h(
+          "div",
+          { style: { display: "flex", flexDirection: "column", gap: "16px" } },
+          h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignSelf: "flex-start",
+                padding: "6px 14px",
+                backgroundColor: BRAND_GREEN,
+                color: TEXT_WHITE,
+                fontSize: "14px",
+                fontWeight: 600,
+                borderRadius: "999px",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              },
+            },
+            badge
+          ),
+          h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                color: TEXT_WHITE,
+                fontSize: title.length > 30 ? "44px" : "52px",
+                fontWeight: 800,
+                lineHeight: 1.1,
+                letterSpacing: "-1px",
+              },
+            },
+            title
+          ),
+          subtitle
+            ? h(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    color: TEXT_MUTED,
+                    fontSize: "20px",
+                    fontWeight: 400,
+                    fontStyle: type === "plant" ? "italic" : "normal",
+                    lineHeight: 1.3,
+                  },
+                },
+                subtitle
+              )
+            : null
         ),
-        h("div", {
-          style: { display: "flex", alignItems: "center", gap: "8px", color: TEXT_MUTED,
-            fontSize: "16px", fontWeight: 500, paddingTop: "16px", borderTop: `1px solid ${BRAND_GREEN}` }
-        }, "floramedicalglobal.com")
+        // Bottom: Domain
+        h(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              color: TEXT_MUTED,
+              fontSize: "16px",
+              fontWeight: 500,
+              paddingTop: "16px",
+              borderTop: `1px solid ${BRAND_GREEN}`,
+            },
+          },
+          "floramedicalglobal.com"
+        )
       )
     );
 
     return new ImageResponse(tree, { width: 1200, height: 630 });
   } catch (error) {
     console.error("OG generation error:", error);
-    return new Response(`Failed to generate image: ${error.message}`, { status: 500 });
+    return new Response(`Failed to generate image: ${error.message}`, {
+      status: 500,
+    });
   }
 }
