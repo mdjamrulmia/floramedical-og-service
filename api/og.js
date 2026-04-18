@@ -16,7 +16,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1509223197845-458d87318791?w=1200&h=1260&fit=crop";
 
-const LOGO_URL = "https://www.floramedicalglobal.com/favicon.png";
+// SEO-optimized logo URL (not generic favicon.png)
+const LOGO_URL = "https://www.floramedicalglobal.com/flora-medical-global-logo.png";
 
 const BRAND_GREEN = "#16a34a";
 const BRAND_DARK = "#0a3d2e";
@@ -151,7 +152,7 @@ export default async function handler(req) {
             backgroundColor: BRAND_DARK,
           },
         },
-        // Top: Logo (real favicon image, not emoji)
+        // Top: Logo (SEO-optimized filename)
         h(
           "div",
           { style: { display: "flex", alignItems: "center", gap: "12px" } },
