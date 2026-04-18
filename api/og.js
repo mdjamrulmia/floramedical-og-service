@@ -1,9 +1,6 @@
 // Vercel Edge Function — Generates 1200x630 branded OG images
 // URL: https://og.floramedicalglobal.com/api/og?type=plant&slug=aloe-vera
 // URL: https://og.floramedicalglobal.com/api/og?type=blog&slug=some-blog-slug
-//
-// NOTE: Written as pure JS with React.createElement (no JSX) to avoid
-// Vercel Edge Runtime "react/jsx-runtime" unsupported-module error.
 
 import { ImageResponse } from "@vercel/og";
 import { createClient } from "@supabase/supabase-js";
@@ -18,6 +15,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1509223197845-458d87318791?w=1200&h=1260&fit=crop";
+
+const LOGO_URL = "https://www.floramedicalglobal.com/favicon.png";
 
 const BRAND_GREEN = "#16a34a";
 const BRAND_DARK = "#0a3d2e";
@@ -57,7 +56,6 @@ export default async function handler(req) {
       if (data) {
         title = data.name_en || "Plant";
         subtitle = data.scientific_name || data.family || "";
-        // @vercel/og only supports JPEG/PNG (NOT webp/avif)
         const isSupported = (u) =>
           typeof u === "string" && /\.(jpe?g|png)(\?|$)/i.test(u);
         const supportedFromArray = Array.isArray(data.images)
@@ -153,26 +151,21 @@ export default async function handler(req) {
             backgroundColor: BRAND_DARK,
           },
         },
-        // Top: Logo
+        // Top: Logo (real favicon image, not emoji)
         h(
           "div",
           { style: { display: "flex", alignItems: "center", gap: "12px" } },
-          h(
-            "div",
-            {
-              style: {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "44px",
-                height: "44px",
-                backgroundColor: BRAND_GREEN,
-                borderRadius: "10px",
-                fontSize: "26px",
-              },
+          h("img", {
+            src: LOGO_URL,
+            width: 44,
+            height: 44,
+            style: {
+              width: "44px",
+              height: "44px",
+              borderRadius: "10px",
+              objectFit: "cover",
             },
-            "🌿"
-          ),
+          }),
           h(
             "div",
             { style: { display: "flex", flexDirection: "column" } },
@@ -181,12 +174,12 @@ export default async function handler(req) {
               {
                 style: {
                   color: TEXT_WHITE,
-                  fontSize: "20px",
+                  fontSize: "22px",
                   fontWeight: 700,
                   lineHeight: 1.1,
                 },
               },
-              "Flora Medical"
+              "Flora Medical Global"
             ),
             h(
               "span",
@@ -196,9 +189,10 @@ export default async function handler(req) {
                   fontSize: "14px",
                   fontWeight: 400,
                   lineHeight: 1.1,
+                  marginTop: "2px",
                 },
               },
-              "Global Encyclopedia"
+              "Medicinal Plant Encyclopedia"
             )
           )
         ),
